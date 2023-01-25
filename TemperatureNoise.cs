@@ -4,11 +4,11 @@ using UnityEngine;
 
 public class TemperatureNoise
 {
-    public static float[,] GenerateTemperatureNoiseMap(int mapWidth, int mapHeight, int seed, float scale, int octaves)
+    public static float[,] GenerateTemperatureNoiseMap(int mapWidth, int mapHeight, int temperatureSeed, float scale, int octaves)
     {
         float[,] temperatureNoiseMap = new float[mapWidth, mapHeight];
 
-        System.Random prng = new System.Random((seed/2)^3);
+        System.Random prng = new System.Random(temperatureSeed);
         Vector2[] octaveOffsets = new Vector2[octaves];
         for (int i = 0; i < octaves; i++)
         {

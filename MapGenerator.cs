@@ -13,10 +13,16 @@ public class MapGenerator : MonoBehaviour
     public RuleTile mountainTile;
     public RuleTile mountain2Tile;
     public RuleTile mountainSnowyTile;
+    public Tilemap tilemapLayer;
     public Tilemap tilemapLayer0;
     public Tilemap tilemapLayer1;
     public Tilemap tilemapLayer2;
     private Vector3Int tilePosition;
+    private Vector2 treePosition;
+
+    //trees and srhubs
+    public GameObject pineTree, oakTree, mangrooveTree, desertCactus;
+    public float tileOffsetX, tileOffsetY;
 
     //biomes
     string montaneGrasslandsBiome = "Montane Grasslands";
@@ -37,40 +43,63 @@ public class MapGenerator : MonoBehaviour
     [Range(0, 1)]
     public float temperatureHotThreshold, temperatureWarmThreshold, temperatureColdThreshold;
 
-    //Noise.cs, TemperatureNoise.cs
+    //vegetation height
+    [Range(0, 1)]
+    public float treeThreshold, shrubThreshold;
+
+    //Noise.cs, TemperatureNoise.cs, vegetationNoise.cs
     public int mapWidth;
     public int mapHeight;
-    public int seed;
-    public float noiseScale;
-    public int octaves;
-    public float persistance;
-    public float lacunarity;
+    public int seed, temperatureSeed, vegetationSeed, simplexSeed;
+    public float noiseScale, vegetationNoiseScale;
+    public int octaves, vegetationOctaves;
+    public float persistance, vegetationPersistance;
+    public float lacunarity, vegetationLacunarity;
 
     public bool autoUpdate, printBiomes;
-
+    private void Start()
+    {
+        if (temperatureSeed == 0)
+        {
+            temperatureSeed = seed / 2;
+        }
+        if (vegetationSeed == 0)
+        {
+            vegetationSeed = seed / 4;
+        }
+        if (simplexSeed == 0)
+        {
+            simplexSeed = -seed;
+        }
+    }
     public void GenerateMap()
     {
         float[,] heightNoiseMap = Noise.GenerateNoiseMap(mapWidth, mapHeight, seed, noiseScale, octaves, persistance, lacunarity);
-        float[,] temperatureNoiseMap = TemperatureNoise.GenerateTemperatureNoiseMap(mapWidth, mapHeight, seed, noiseScale, octaves);
-
+        float[,] temperatureNoiseMap = TemperatureNoise.GenerateTemperatureNoiseMap(mapWidth, mapHeight, temperatureSeed, noiseScale, octaves);
+        float[,] vegetationNoiseMap = VegetationNoise.GenerateVegetationNoiseMap(mapWidth, mapHeight, seed, vegetationNoiseScale, octaves, vegetationPersistance, vegetationLacunarity);
+        int[,] simplexNoiseMap = SimplexNoise.GenerateSimplexNoiseMap(mapWidth, mapHeight, vegetationSeed);
         for (int y = 0; y < mapHeight; y++)
         {
-            for(int x = 0; x < mapWidth; x++)
+            for (int x = 0; x < mapWidth; x++)
             {
+                float currentHeight = heightNoiseMap[x, y];
+                float currentTemperature = temperatureNoiseMap[x, y];
+                float currentVegetation = Mathf.Lerp(vegetationNoiseMap[x, y], simplexNoiseMap[x, y], 0.5f);
                 tilePosition = new Vector3Int(x, y, 0);
+                treePosition = new Vector2(x, y);
                 //biome setter
                 string[,] biome = new string[mapWidth, mapHeight];
-                if (heightNoiseMap[x, y] <= lowBiome)
+                if (currentHeight <= lowBiome)
                 {
-                    if (temperatureNoiseMap[x, y] <= temperatureColdThreshold)
+                    if (currentTemperature <= temperatureColdThreshold)
                     {
                         biome[x, y] = tundraBiome;
                     }
-                    else if (temperatureNoiseMap[x, y] <= temperatureWarmThreshold)
+                    else if (currentTemperature <= temperatureWarmThreshold)
                     {
                         biome[x, y] = savannaBiome;
                     }
-                    else if (temperatureNoiseMap[x, y] <= temperatureHotThreshold)
+                    else if (currentTemperature <= temperatureHotThreshold)
                     {
                         biome[x, y] = mediterraneanBiome;
                     }
@@ -79,17 +108,17 @@ public class MapGenerator : MonoBehaviour
                         biome[x, y] = mangrooveBiome;
                     }
                 }
-                else if (heightNoiseMap[x, y] <= highBiome)
+                else if (currentHeight <= highBiome)
                 {
-                    if (temperatureNoiseMap[x, y] <= temperatureColdThreshold)
+                    if (currentTemperature <= temperatureColdThreshold)
                     {
                         biome[x, y] = taigaBiome;
                     }
-                    else if (temperatureNoiseMap[x, y] <= temperatureWarmThreshold)
+                    else if (currentTemperature <= temperatureWarmThreshold)
                     {
                         biome[x, y] = coniferousForestBiome;
                     }
-                    else if (temperatureNoiseMap[x, y] <= temperatureHotThreshold)
+                    else if (currentTemperature <= temperatureHotThreshold)
                     {
                         biome[x, y] = dryForestBiome;
                     }
@@ -113,69 +142,114 @@ public class MapGenerator : MonoBehaviour
                         biome[x, y] = desertBiome;
                     }
                 }
-                //tile resetter
-                tilemapLayer0.SetTile(tilePosition, null);
-                tilemapLayer2.SetTile(tilePosition, null);
-                //tile setter
-                if (heightNoiseMap[x, y] <= waterThreshold)
+                //tile and vegetation setter
+                if (biome[x, y] == desertBiome)
                 {
-                    tilemapLayer1.SetTile(tilePosition, waterTile);
-                    if (biome[x, y] != desertBiome)
+                    //tile
+                    tilemapLayer1.SetTile(tilePosition, sandTile);
+                    if (currentHeight <= waterThreshold)
                     {
-                        tilemapLayer0.SetTile(tilePosition, deepWaterTile);
-                    }
-                    else
-                    {
+                        tilemapLayer0.SetTile(tilePosition, waterTile);
                         biome[x, y] = "Oasis";
                     }
-                }
-                else if (heightNoiseMap[x, y] > waterThreshold && heightNoiseMap[x, y] <= sandThreshold)
-                {
-                    if (biome[x, y] != desertBiome)
+                    //vegetation
+                    else if (currentVegetation > treeThreshold && currentHeight > grassThreshold && currentHeight <= mountainThreshold)
                     {
-                        tilemapLayer1.SetTile(tilePosition, waterTile);
+                        //Instantiate(desertCactus, new Vector3(treePosition.x + tileOffsetX, treePosition.y + tileOffsetY, -1), Quaternion.identity);
                     }
-                    else
+                }
+                else if (biome[x, y] == savannaBiome)
+                {
+                    //natural tiles
+                    if (currentHeight <= sandThreshold)
+                    {
+                        tilemapLayer0.SetTile(tilePosition, waterTile);
+                    }
+                    //tile
+                    else if (currentHeight > sandThreshold && currentHeight <= grassThreshold)
                     {
                         tilemapLayer1.SetTile(tilePosition, sandTile);
                     }
-                }
-                else if (heightNoiseMap[x, y] > sandThreshold && heightNoiseMap[x, y] <= grassThreshold)
-                {
-                    tilemapLayer1.SetTile(tilePosition, sandTile);
-                }
-                else if (heightNoiseMap[x, y] > grassThreshold && heightNoiseMap[x, y] <= mountainThreshold)
-                {
-                    if (biome[x, y] != desertBiome)
+                    else if (currentHeight <= mountainThreshold)
                     {
                         tilemapLayer1.SetTile(tilePosition, grassTile);
                     }
-                    else
-                    {
-                        tilemapLayer1.SetTile(tilePosition, sandTile);
-                    }
-                }
-                else if (heightNoiseMap[x, y] > mountainThreshold && heightNoiseMap[x, y] <= mountainSnowyThreshold)
-                {
-                    if (biome[x, y] != desertBiome)
+                    else if (currentHeight > mountainThreshold && currentHeight <= mountainSnowyThreshold)
                     {
                         tilemapLayer1.SetTile(tilePosition, mountainTile);
                     }
-                    else
+                    else if (currentHeight > mountainSnowyThreshold)
                     {
-                        tilemapLayer1.SetTile(tilePosition, sandTile);
+                        tilemapLayer2.SetTile(tilePosition, mountain2Tile);
+                    }
+                    //vegetation
+                    else if (currentVegetation > treeThreshold && currentHeight > grassThreshold && currentHeight <= mountainThreshold)
+                    {
+                        //Instantiate(desertCactus, new Vector3(treePosition.x + tileOffsetX, treePosition.y + tileOffsetY, -1), Quaternion.identity);
+                    }
+                }
+                else if (biome[x, y] == mangrooveBiome)
+                {
+                    tilemapLayer1.SetTile(tilePosition, sandTile);
+                    if (currentHeight < sandThreshold)
+                    {
+                        tilemapLayer0.SetTile(tilePosition, waterTile);
+                        if (currentVegetation > treeThreshold)
+                        {
+                            Instantiate(mangrooveTree, new Vector3(treePosition.x + tileOffsetX, treePosition.y + tileOffsetY, -1), Quaternion.identity);
+                        }
                     }
                 }
                 else
                 {
-                    tilemapLayer1.SetTile(tilePosition, mountainTile);
-                    if (biome[x, y] == montaneGrasslandsBiome || biome[x, y] == taigaBiome)
+                    //natural tiles
+                    if (currentHeight > waterThreshold && currentHeight <= sandThreshold)
                     {
-                        tilemapLayer2.SetTile(tilePosition, mountainSnowyTile);
+                        tilemapLayer0.SetTile(tilePosition, waterTile);
+                        tilemapLayer1.SetTile(tilePosition, sandTile);
                     }
-                    else if (biome[x, y] != desertBiome)
+                    else if (currentHeight <= waterThreshold)
                     {
-                        tilemapLayer2.SetTile(tilePosition, mountain2Tile);
+                        tilemapLayer0.SetTile(tilePosition, waterTile);
+                        tilemapLayer.SetTile(tilePosition, deepWaterTile);
+                    }
+                    else if (currentHeight > sandThreshold && currentHeight <= grassThreshold)
+                    {
+                        tilemapLayer1.SetTile(tilePosition, sandTile);
+                    }
+                    else if (currentHeight > grassThreshold && currentHeight <= mountainThreshold)
+                    {
+                        tilemapLayer1.SetTile(tilePosition, grassTile);
+                    }
+                    else if (currentHeight > mountainThreshold)
+                    {
+                        tilemapLayer1.SetTile(tilePosition, mountainTile);
+                    }
+                    if (biome[x, y] == montaneGrasslandsBiome || biome[x, y] == taigaBiome || biome[x, y] == tundraBiome)
+                    {
+                        //snowy tiles
+                        if (currentHeight > mountainSnowyThreshold)
+                        {
+                            tilemapLayer2.SetTile(tilePosition, mountainSnowyTile);
+                        }
+                        //vegetation
+                        if (currentVegetation > treeThreshold && currentHeight > grassThreshold && currentHeight <= mountainThreshold)
+                        {
+                            Instantiate(pineTree, new Vector3(treePosition.x + tileOffsetX, treePosition.y + tileOffsetY, -1), Quaternion.identity);
+                        }
+                    }
+                    else
+                    {
+                        //regular tiles
+                        if (currentHeight > mountainSnowyThreshold)
+                        {
+                            tilemapLayer2.SetTile(tilePosition, mountain2Tile);
+                        }
+                        //vegetation
+                        if (currentVegetation > treeThreshold && currentHeight > grassThreshold && currentHeight <= mountainThreshold)
+                        {
+                            Instantiate(oakTree, new Vector3(treePosition.x + tileOffsetX, treePosition.y + tileOffsetY, -1), Quaternion.identity);
+                        }
                     }
                 }
                 if (printBiomes)
@@ -185,64 +259,18 @@ public class MapGenerator : MonoBehaviour
             }
         }
     }
-    /*
-    public string[,] biomeGenerator(int x, int y, float heightNoiseMap, float temperatureNoiseMap)
+    public void ClearMap()
     {
-        string[,] biome = new string[mapWidth, mapHeight];
-        if (heightNoiseMap <= lowBiome)
+        for (int y = 0; y < mapHeight; y++)
         {
-            if (temperatureNoiseMap <= temperatureColdThreshold)
+            for (int x = 0; x < mapWidth; x++)
             {
-                biome[x, y] = tundraBiome;
-            }
-            else if (temperatureNoiseMap <= temperatureWarmThreshold)
-            {
-                biome[x, y] = savannaBiome;
-            }
-            else if (temperatureNoiseMap <= temperatureHotThreshold)
-            {
-                biome[x, y] = mediterraneanBiome;
-            }
-            else
-            {
-                biome[x, y] = mangrooveBiome;
+                tilePosition = new Vector3Int(x, y, 0);
+                tilemapLayer.SetTile(tilePosition, null);
+                tilemapLayer0.SetTile(tilePosition, null);
+                tilemapLayer1.SetTile(tilePosition, null);
+                tilemapLayer2.SetTile(tilePosition, null);
             }
         }
-        else if (heightNoiseMap <= highBiome)
-        {
-            if (temperatureNoiseMap <= temperatureColdThreshold)
-            {
-                biome[x, y] = taigaBiome;
-            }
-            else if (temperatureNoiseMap <= temperatureWarmThreshold)
-            {
-                biome[x, y] = coniferousForestBiome;
-            }
-            else if (temperatureNoiseMap <= temperatureHotThreshold)
-            {
-                biome[x, y] = dryForestBiome;
-            }
-            else
-            {
-                biome[x, y] = mediterraneanBiome;
-            }
-        }
-        else
-        {
-            if (temperatureNoiseMap <= temperatureWarmThreshold)
-            {
-                biome[x, y] = montaneGrasslandsBiome;
-            }
-            else if (temperatureNoiseMap <= temperatureHotThreshold)
-            {
-                biome[x, y] = coniferousForestBiome;
-            }
-            else
-            {
-                biome[x, y] = desertBiome;
-            }
-        }
-        return biome[x, y];
     }
-*/
 }
