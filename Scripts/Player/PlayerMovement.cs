@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerMovement : MonoBehaviour
+public class PlayerMovement : MonoBehaviour, IDamagable
 {
     public Camera mainCamera;
     private float playerMoveSpeed = 6f;
@@ -26,5 +26,10 @@ public class PlayerMovement : MonoBehaviour
     void FixedUpdate()
     {
         playerRigidBody.MovePosition(playerRigidBody.position + playerMovement * playerMoveSpeed * Time.fixedDeltaTime);
+    }
+
+    public void Damage(Vector3 force, int damage)
+    {
+        playerRigidBody.AddForce(force);
     }
 }

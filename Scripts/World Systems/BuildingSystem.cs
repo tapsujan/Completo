@@ -6,30 +6,32 @@ using UnityEngine.Tilemaps;
 public class BuildingSystem : MonoBehaviour
 {
     [SerializeField] private TileBase hT, hTBuild, hTDig, hTMine, hTChop, hTPlow, hTUse, hTNotBuild;
-    [SerializeField] private Tilemap mainTilemap;
-    [SerializeField] private Tilemap secondaryTilemap;
+    [SerializeField] private Tilemap tilemap1;
+    [SerializeField] private Tilemap tilemap2;
     [SerializeField] private Tilemap tempTilemap;
 
-    [SerializeField] private GameObject lootPrefab;
-
-    //lootables
-    private GameObject[] DroppedItemPrefab;
-    private GameObject DroppedItemPrefabLowChance;
-    private int maxPossibleDrop;
-
     [SerializeField] private Camera mainCamera;
+
+    public int multiplier = 1;
 
     private Vector3Int playerPos;
     private Vector3Int highlightedTilePos;
     private bool highlighted;
-    private bool action;
     Vector3Int mouseGridPos;
+
+
+ 
+    public static BuildingSystem instance;
+    private void Awake()
+    {
+        instance = this;
+    }
     private void Start()
     {
     }
     private void Update()
     {
-        playerPos = mainTilemap.WorldToCell(transform.position);
+        playerPos = tilemap1.WorldToCell(transform.position);
         Item item = InventoryManager.instance.GetSelectedItem(false);
         if (item != null)
         {
@@ -43,14 +45,14 @@ public class BuildingSystem : MonoBehaviour
     private void HighlightTile(Item currentItem)
     {
         mouseGridPos = GetMouseOnGridPos();
+        RuleTileWithData tile1 = tilemap1.GetTile<RuleTileWithData>(mouseGridPos);
+        RuleTileWithData tile2 = tilemap2.GetTile<RuleTileWithData>(mouseGridPos);
         if (currentItem == null)
         {
             tempTilemap.SetTile(mouseGridPos, null);
         }
         else
         {
-            RuleTileWithData tile1 = mainTilemap.GetTile<RuleTileWithData>(mouseGridPos);
-            RuleTileWithData tile2 = secondaryTilemap.GetTile<RuleTileWithData>(mouseGridPos);
             TileBase selectedHT = GetSelectedHT(tile1, tile2, currentItem);
             if (highlightedTilePos != mouseGridPos)
             {
@@ -62,57 +64,58 @@ public class BuildingSystem : MonoBehaviour
                     highlightedTilePos = mouseGridPos;
                 }
             }
+
+
             if (Input.GetMouseButtonDown(0) && selectedHT != null)
             {
-                ActionType currentItemActionType = currentItem.action;
-                if (currentItemActionType == ActionType.Build)
+                ActionType currentActionType = currentItem.action;
+                Action(currentActionType);
+                if (currentActionType == ActionType.Build)
                 {
                     if (selectedHT != hTNotBuild)
                     {
-                        secondaryTilemap.SetTile(mouseGridPos, currentItem.tile);
+                        tilemap2.SetTile(mouseGridPos, currentItem.tile);
                         InventoryManager.instance.GetSelectedItem(true);
                     }
                 }
-                else if (currentItemActionType == ActionType.Dig)
+                else if (currentActionType == ActionType.Dig)
                 {
 
                 }
-                else if (currentItemActionType == ActionType.Mine)
+                else if (currentActionType == ActionType.Mine)
                 {
 
                 }
-                else if (currentItemActionType == ActionType.Chop)
+                else if (currentActionType == ActionType.Chop)
                 {
-                    //play animation
-                    //play sound
-                    //play coroutine that destroys thingy
-                    DroppedItemPrefab = tile2.DroppedItemPrefab;
-                    DroppedItemPrefabLowChance = tile2.DroppedItemPrefabLowChance;
-                    maxPossibleDrop = tile2.maxPossibleDrop;
-                    SpawnNewItemPrefab((Vector3Int)mouseGridPos);
-                    tempTilemap.SetTile(highlightedTilePos, null);
-                    secondaryTilemap.SetTile(highlightedTilePos, null);
+                    WorldGameObject currentGameObject = tile2.m_DefaultGameObject.GetComponent<WorldGameObject>();
+                    currentGameObject.Damage(1, true, ActionType.Chop);
+                    //currentGameObject.Damage(new Vector3(0, 0, 0), 1, true, ActionType.Chop, multiplier);
                 }
-                else if (currentItemActionType == ActionType.Plow)
+                else if (currentActionType == ActionType.Till)
                 {
 
                 }
-                else if (currentItemActionType == ActionType.Use)
+                else if (currentActionType == ActionType.Use)
                 {
 
                 }
-                else if (currentItemActionType == ActionType.Plant)
+                else if (currentActionType == ActionType.Plant)
                 {
 
                 }
             }
         }
     }
+    public void Action(ActionType actionType)
+    {
+
+    }
     //Get mouse position & mouse grid position cell on tilemap
     private Vector3Int GetMouseOnGridPos()
     {
         Vector3 mousePos = mainCamera.ScreenToWorldPoint(Input.mousePosition);
-        Vector3Int mouseCellPos = mainTilemap.WorldToCell(mousePos);
+        Vector3Int mouseCellPos = tilemap1.WorldToCell(mousePos);
         mouseCellPos.z = 0;
 
         return mouseCellPos;
@@ -135,23 +138,23 @@ public class BuildingSystem : MonoBehaviour
         ActionType currentItemAT = currentItem.action;
         ActionType tile1AT = ActionType.Null;
         ActionType tile2AT = ActionType.Null;
-        if(tilemap1RuleTile != null)
+        if (tilemap1RuleTile != null)
         {
             tile1AT = tilemap1RuleTile.item.action;
         }
-        if(tilemap2RuleTile != null)
+        if (tilemap2RuleTile != null)
         {
             tile2AT = tilemap2RuleTile.item.action;
         }
 
-        //Highlight Map Grid Table, page 7
+        //Highlight Map Grid Table, page 7 (!)
         if (currentItemAT == ActionType.Build)
         {
             if (tilemap2RuleTile != null)
             {
                 return hTNotBuild;
             }
-            else if (tile1AT == ActionType.Build || tile1AT == ActionType.Dig || tile1AT == ActionType.Plow || tile1AT == ActionType.Plant)
+            else if (tile1AT == ActionType.Build || tile1AT == ActionType.Dig || tile1AT == ActionType.Till || tile1AT == ActionType.Plant)
             {
                 return hTBuild;
             }
@@ -159,7 +162,7 @@ public class BuildingSystem : MonoBehaviour
         }
         else if (currentItemAT == ActionType.Dig)
         {
-            if (tile1AT == ActionType.Build || tile1AT == ActionType.Dig || tile1AT == ActionType.Plow || tile1AT == ActionType.Plant)
+            if (tile1AT == ActionType.Build || tile1AT == ActionType.Dig || tile1AT == ActionType.Till || tile1AT == ActionType.Plant)
             {
                 return hTDig;
             }
@@ -197,13 +200,13 @@ public class BuildingSystem : MonoBehaviour
             }
             return null;
         }
-        else if (currentItemAT == ActionType.Plow)
+        else if (currentItemAT == ActionType.Till)
         {
             if (tile2AT == ActionType.Dig)
             {
                 return hTPlow;
             }
-            if (tile2AT == ActionType.Plow)
+            if (tile2AT == ActionType.Till)
             {
                 return hTPlow;
             }
@@ -222,28 +225,5 @@ public class BuildingSystem : MonoBehaviour
             return null;
         }
         return null;
-    }
-    public void SpawnNewItemPrefab(Vector3Int position)
-    {
-        if (DroppedItemPrefab.Length == 1)
-        {
-            SpawnNewDroppedItem(DroppedItemPrefab[0], /*n = random between 1 and Max n*/ (int)Random.Range(1, maxPossibleDrop), position);
-        }
-        else if (DroppedItemPrefab.Length == 0)
-        {
-            Debug.LogError("Lootable Not Set On: " + transform);
-        }
-        else
-        {
-            SpawnNewDroppedItem(DroppedItemPrefab[/*Random item from list*/(int)Random.Range(0, DroppedItemPrefab.Length)], 1, position);
-        }
-    }
-    private void SpawnNewDroppedItem(GameObject prefab, int count, Vector3Int position)
-    {
-        //Spawn n amount of times
-        for (int i = 0; i < count; i++)
-        {
-            Instantiate(prefab, new Vector3(position.x, position.y, -4), Quaternion.identity);
-        }
     }
 }

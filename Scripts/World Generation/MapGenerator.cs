@@ -10,6 +10,7 @@ public class MapGenerator : MonoBehaviour
     public RuleTile waterTile;
     public RuleTile sandTile;
     public RuleTile grassTile;
+    public RuleTile dirtTile;
     public RuleTile mountainTile;
     public RuleTile mountain2Tile;
     public RuleTile mountainSnowyTile;
@@ -41,7 +42,7 @@ public class MapGenerator : MonoBehaviour
 
     //tile height
     [Range(0, 1)]
-    public float waterThreshold, sandThreshold, grassThreshold, mountainThreshold, mountainSnowyThreshold, highBiome, lowBiome;
+    public float waterThreshold, sandThreshold, grassThreshold, dirThreshold, grass2Threshold, mountainThreshold, mountainSnowyThreshold, highBiome, lowBiome;
 
     //tile temperature
     [Range(0, 1)]
@@ -232,7 +233,7 @@ public class MapGenerator : MonoBehaviour
                         //vegetation
                         else if (canPlant[x, y] && currentHeight > grassThreshold && currentHeight <= mountainThreshold)
                         {
-                            //InstantiateTree(desertCactus);
+                            InstantiateTree(CactusTreeTile);
                         }
                     }
                     else if (biome[x, y] == savannaBiome)
@@ -262,7 +263,7 @@ public class MapGenerator : MonoBehaviour
                         //vegetation
                         else if (canPlant[x, y] && currentHeight > grassThreshold && currentHeight <= mountainThreshold)
                         {
-                            //InstantiateTree(CactusTreeTile);
+                            InstantiateTree(CactusTreeTile);
                         }
                     }
                     else if (biome[x, y] == mangrooveBiome)
@@ -295,7 +296,24 @@ public class MapGenerator : MonoBehaviour
                         {
                             tilemapLayer1.SetTile(tilePosition, sandTile);
                         }
-                        else if (currentHeight > grassThreshold && currentHeight <= mountainThreshold)
+                        else if (currentHeight > grassThreshold && currentHeight <= dirThreshold)
+                        {
+                            tilemapLayer1.SetTile(tilePosition, grassTile);
+                        }
+                        else if (currentHeight > dirThreshold && currentHeight <= grass2Threshold)
+                        {
+                            if (biome[x, y] != montaneGrasslandsBiome ||
+                                biome[x, y] != coniferousForestBiome ||
+                                biome[x, y] != mediterraneanBiome)
+                            {
+                                tilemapLayer1.SetTile(tilePosition, dirtTile);
+                            }
+                            else
+                            {
+                                tilemapLayer1.SetTile(tilePosition, grassTile);
+                            }
+                        }
+                        else if (currentHeight > grass2Threshold && currentHeight <= mountainThreshold)
                         {
                             tilemapLayer1.SetTile(tilePosition, grassTile);
                         }

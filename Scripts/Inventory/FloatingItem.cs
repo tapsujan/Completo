@@ -18,7 +18,8 @@ public class FloatingItem : MonoBehaviour
     {
         while (true)
         {
-            visual.localPosition = new Vector2(0, 0.25f * Mathf.Sin(Time.time));
+                                                  //amp  *       Sin(     time * freq)
+            visual.localPosition = new Vector2(0, 0.125f * Mathf.Sin(Time.time *  3f));
             yield return null;
         }
     }

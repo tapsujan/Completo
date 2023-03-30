@@ -6,10 +6,5 @@ using UnityEngine;
 public class RuleTileWithData : RuleTile
 {
     public Item item;
-    public bool buildable;
-
-    public GameObject[] DroppedItemPrefab;
-    public GameObject DroppedItemPrefabLowChance;
-    //Max n
-    public int maxPossibleDrop;
+    public ActionType actionType;
 }

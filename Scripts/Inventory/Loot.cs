@@ -9,15 +9,19 @@ public class Loot : MonoBehaviour
     [SerializeField] private float moveSpeed = 8;
     [SerializeField] public Item item;
 
+    private void Start()
+    {
+        Initialize(item);
+    }
     public void Initialize(Item item)
     {
         this.item = item;
         spriteRenderer.sprite = item.image;
     }
 
-
     private void OnTriggerEnter2D(Collider2D collision)
     {
+        //Bad Code (!)
         if (collision.CompareTag("Player"))
         {
             bool canAdd = InventoryManager.instance.AddItem(item);
@@ -26,10 +30,12 @@ public class Loot : MonoBehaviour
                 StartCoroutine(MoveAndCollect(collision.transform));
             }
         }
+
     }
 
     private IEnumerator MoveAndCollect(Transform target)
     {
+        //Bad Code (!)
         Destroy(GetComponent<CircleCollider2D>());
 
         while (transform.position != target.position)
